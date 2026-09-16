@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Julius — Caesar Chicken Wraps</title>
+<meta name="description" content="Julius is coming to Canary Wharf, London. Caesar chicken wraps, rolled tight. Leave your email to hear when we open." />
+<link rel="icon" href="data:,">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg: #F5EEDC;
+    --ink: #1F3D2C;
+    --muted: #6E7C67;
+    --line: rgba(31,61,44,0.16);
+    --card: #FFFFFF;
+    color-scheme: light;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html, body{ margin: 0; }
+
+  body{
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(28px, 6vw, 64px) 20px;
+  }
+
+  .sheet{
+    width: 100%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 22px;
+  }
+
+  .lockup{
+    width: min(340px, 100%);
+    opacity: 0;
+    animation: rise .6s ease-out .05s forwards;
+  }
+  .lockup img{
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .photos{
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    max-width: 360px;
+    opacity: 0;
+    animation: rise .7s ease-out .15s forwards;
+  }
+  .photo{
+    flex: 1;
+    min-width: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 18px 40px -18px rgba(20, 32, 22, 0.45);
+  }
+  .photo img{
+    display: block;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+  }
+
+  .eyebrow{
+    margin: 0;
+    font: 600 12px/1 "Work Sans", sans-serif;
+    letter-spacing: .24em;
+    text-transform: uppercase;
+    color: var(--muted);
+    opacity: 0;
+    animation: rise .6s ease-out .24s forwards;
+  }
+
+  p.lede{
+    margin: 0;
+    max-width: 34ch;
+    font: 500 16px/1.6 "Work Sans", sans-serif;
+    color: var(--ink);
+    opacity: 0;
+    animation: rise .6s ease-out .3s forwards;
+  }
+  p.lede b{ color: var(--muted); font-weight: 500; }
+
+  form{
+    width: 100%;
+    margin-top: 4px;
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    animation: rise .6s ease-out .38s forwards;
+  }
+  @media (max-width: 400px){
+    form{ flex-direction: column; }
+  }
+
+  .field{ flex: 1; min-width: 0; }
+  input[type="email"]{
+    width: 100%;
+    background: var(--card);
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    color: var(--ink);
+    font: 600 15px/1 "Work Sans", sans-serif;
+    padding: 15px 16px;
+    outline: none;
+    transition: border-color .2s ease;
+  }
+  input[type="email"]::placeholder{ color: var(--muted); opacity: .85; }
+  input[type="email"]:focus{ border-color: var(--ink); }
+
+  button{
+    flex-shrink: 0;
+    border: none;
+    border-radius: 12px;
+    background: var(--ink);
+    color: var(--bg);
+    font: 700 13px/1 "Work Sans", sans-serif;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: 0 24px;
+    height: 50px;
+    cursor: pointer;
+    transition: transform .15s ease, opacity .15s ease;
+  }
+  button:hover{ opacity: .88; }
+  button:active{ transform: scale(.97); }
+  button:focus-visible, input:focus-visible{ outline: 2px solid var(--ink); outline-offset: 3px; }
+
+  .confirm{
+    display: none;
+    font: 600 14px/1.5 "Work Sans", sans-serif;
+    color: var(--muted);
+  }
+  .confirm b{ color: var(--ink); }
+  form[data-sent="true"]{ display: none; }
+  form[data-sent="true"] ~ .confirm{ display: block; opacity: 0; animation: rise .5s ease-out forwards; }
+
+  footer{
+    margin-top: 2px;
+    font: 600 11px/1 "Work Sans", sans-serif;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    opacity: 0;
+    animation: rise .6s ease-out .46s forwards;
+  }
+
+  @keyframes rise{
+    from{ opacity: 0; transform: translateY(8px); }
+    to{ opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .lockup, .photo, .eyebrow, p.lede, form, footer{
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <div class="lockup">
+    <img src="img/lockup.jpg" alt="Julius — Caesar Chicken Wraps. Lunch, done right." />
+  </div>
+
+  <div class="photos">
+    <div class="photo">
+      <img src="img/wrap-closed.jpg" alt="Julius wrap, wrapped and ready to go" />
+    </div>
+    <div class="photo">
+      <img src="img/wrap-open.jpg" alt="Julius Caesar chicken wrap, sliced in half" />
+    </div>
+  </div>
+
+  <p class="eyebrow">Opening soon &middot; Canary Wharf, London</p>
+
+  <p class="lede">
+    Chicken Caesar wraps, rolled tight and ready.
+    <b>Leave your email and we'll tell you the moment the counter opens.</b>
+  </p>
+
+  <form id="notify" data-sent="false">
+    <div class="field">
+      <input type="email" id="email" name="email" placeholder="Enter your email address" required autocomplete="email" />
+    </div>
+    <button type="submit">Notify Me</button>
+  </form>
+  <p class="confirm">You're on the list &mdash; <b>see you at the counter.</b></p>
+
+  <footer>eatjulius.com</footer>
+</div>
+
+<script>
+  document.getElementById('notify').addEventListener('submit', function(e){
+    e.preventDefault();
+    this.setAttribute('data-sent', 'true');
+  });
+</script>
+
+</body>
+</html>
