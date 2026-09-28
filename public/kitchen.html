@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Kitchen — JULIUS</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F0E8; --paper:#FBF9F4; --ink:#1C1C1A; --green:#1F3A2C; --sage:#8FA596;
+    --muted:#5E625B; --soft:#D9D3C4; --empty:#E6E0D2; --cream:#F3F0E8; --alert:#B5462F;
+    color-scheme: light;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:"Archivo", system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+  button{ font:inherit; cursor:pointer; }
+
+  header{ display:flex; align-items:center; gap:20px; padding:16px 24px; border-bottom:2px solid var(--ink); flex-wrap:wrap; }
+  .word{ font:900 26px/1 "Archivo"; font-stretch:112%; color:var(--green); }
+  .clock{ font:700 22px/1 "Archivo"; font-variant-numeric:tabular-nums; }
+  header .sp{ flex:1; }
+  .pause{ border:2px solid var(--ink); background:transparent; height:44px; padding:0 18px; font:700 13px/1 "Archivo"; letter-spacing:.08em; text-transform:uppercase; }
+  .pause[data-on="true"]{ background:var(--alert); border-color:var(--alert); color:#fff; }
+  .conn{ font:600 12px/1 "Archivo"; color:var(--muted); }
+  .conn.bad{ color:var(--alert); }
+
+  .strip{ display:flex; gap:6px; padding:14px 24px; border-bottom:1px solid var(--soft); overflow-x:auto; scrollbar-width:none; }
+  .strip div{ min-width:64px; }
+  .strip b{ display:block; font:700 13px/1 "Archivo"; margin-bottom:6px; font-variant-numeric:tabular-nums; }
+  .strip .cells{ display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:2px; }
+  .strip .cells i{ height:8px; background:var(--green); }
+  .strip .cells i.free{ background:var(--empty); }
+  .strip .lab{ font:700 11px/1 "Archivo"; letter-spacing:.16em; text-transform:uppercase; color:var(--green); align-self:center; min-width:auto; margin-right:10px; }
+
+  .cols{ display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:0; min-height:calc(100vh - 150px); }
+  @media (max-width:900px){ .cols{ grid-template-columns:1fr; } }
+  .col{ padding:18px 20px 40px; border-right:1px solid var(--soft); }
+  .col:last-child{ border-right:0; }
+  .col h2{ margin:0 0 14px; font:700 12px/1 "Archivo"; letter-spacing:.18em; text-transform:uppercase; color:var(--green); display:flex; justify-content:space-between; }
+  .col h2 span{ color:var(--ink); }
+
+  .card{ background:var(--paper); border:2px solid var(--ink); margin-bottom:12px; }
+  .card.new{ animation:flash 1.2s ease-out 3; }
+  @keyframes flash{ 0%{ background:#E9C46A; } 100%{ background:var(--paper); } }
+  .card .hd{ display:flex; align-items:baseline; gap:12px; padding:12px 14px 8px; }
+  .card .code{ font:900 34px/1 "Archivo"; font-stretch:110%; }
+  .card .who{ font:700 18px/1.2 "Archivo"; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .card .slot{ font:700 16px/1 "Archivo"; font-variant-numeric:tabular-nums; }
+  .card ul{ list-style:none; margin:0; padding:4px 14px 12px; font:600 19px/1.45 "Archivo"; }
+  .card ul b{ display:inline-block; min-width:32px; }
+  .card .act{ display:flex; border-top:2px solid var(--ink); }
+  .card .act button{ flex:1; border:0; height:56px; font:800 15px/1 "Archivo"; letter-spacing:.08em; text-transform:uppercase; background:var(--green); color:var(--cream); }
+  .card .act button.ghost{ flex:0 0 auto; padding:0 16px; background:transparent; color:var(--muted); font-weight:600; letter-spacing:0; text-transform:none; border-left:1px solid var(--soft); }
+  .ready .card{ border-color:var(--green); }
+  .mini{ display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--soft); font:600 15px/1.3 "Archivo"; }
+  .mini .t{ font-variant-numeric:tabular-nums; font-weight:700; min-width:48px; }
+  .mini .c{ min-width:44px; font-weight:800; }
+  .mini .i{ color:var(--muted); flex:1; }
+  .empty{ color:var(--muted); font-size:15px; padding:8px 0; }
+
+  .gate{ max-width:360px; margin:18vh auto 0; padding:0 24px; text-align:center; }
+  .gate .word{ font-size:48px; display:block; margin-bottom:24px; }
+  .gate input{ width:100%; font:700 28px/1 "Archivo"; letter-spacing:.3em; text-align:center; padding:16px; border:2px solid var(--ink); background:var(--paper); outline:none; }
+  .gate button{ width:100%; margin-top:10px; height:56px; border:0; background:var(--green); color:var(--cream); font:800 15px/1 "Archivo"; letter-spacing:.1em; text-transform:uppercase; }
+  .gate p{ color:var(--alert); font-weight:600; min-height:1.4em; }
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+
+<form class="gate" id="gate" hidden>
+  <span class="word">JULIUS.</span>
+  <input type="password" id="pin" inputmode="numeric" autocomplete="off" placeholder="PIN" aria-label="Kitchen PIN" />
+  <button type="submit">Open kitchen screen</button>
+  <p id="gateErr" role="alert"></p>
+</form>
+
+<div id="app" hidden>
+  <header>
+    <span class="word">JULIUS.</span>
+    <span class="clock" id="clock"></span>
+    <span class="conn" id="conn"></span>
+    <span class="sp"></span>
+    <button class="pause" id="pause" type="button" data-on="false">Pause online orders</button>
+  </header>
+  <div class="strip" id="strip"></div>
+  <div class="cols">
+    <section class="col">
+      <h2>Make now <span id="nLive">0</span></h2>
+      <div id="live"></div>
+    </section>
+    <section class="col ready">
+      <h2>Ready — waiting for pickup <span id="nReady">0</span></h2>
+      <div id="ready"></div>
+    </section>
+    <section class="col">
+      <h2>Coming up <span id="nUp">0</span></h2>
+      <div id="upcoming"></div>
+      <h2 style="margin-top:28px">Collected</h2>
+      <div id="collected"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var PIN_KEY = "julius-kitchen-pin";
+  var pin = ""; try { pin = localStorage.getItem(PIN_KEY) || ""; } catch(e){}
+  var seen = null, audio = null;
+
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+  function beep(){
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      [0, .25].forEach(function(t){
+        var o = audio.createOscillator(), g = audio.createGain();
+        o.frequency.value = 880; o.connect(g); g.connect(audio.destination);
+        g.gain.setValueAtTime(.25, audio.currentTime + t); g.gain.exponentialRampToValueAtTime(.001, audio.currentTime + t + .2);
+        o.start(audio.currentTime + t); o.stop(audio.currentTime + t + .2);
+      });
+    } catch(e){}
+  }
+
+  function api(path, body){
+    return fetch(path, {
+      method: body ? "POST" : "GET",
+      headers: { "X-Kitchen-Pin": pin, "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function(r){ if (r.status === 401) throw "pin"; return r.json(); });
+  }
+
+  function items(o){ return o.items.map(function(i){ return "<li><b>"+i.qty+"×</b>"+esc(i.name.replace(" Caesar",""))+"</li>"; }).join(""); }
+
+  function wraps(o){ var n = o.items.reduce(function(n,i){ return n+i.qty; },0); return n + (n === 1 ? " wrap" : " wraps"); }
+
+  function card(o, action, label, isNew){
+    return '<div class="card'+(isNew?' new':'')+'"><div class="hd"><span class="code">'+esc(o.code)+'</span>' +
+      '<span class="who">'+esc(o.name)+'</span><span class="slot">'+o.slot+'</span></div>' +
+      '<ul>'+items(o)+'</ul><div class="act">' +
+      '<button type="button" data-id="'+o.id+'" data-to="'+action+'">'+label+'</button>' +
+      (action === "collected" ? '<button class="ghost" type="button" data-id="'+o.id+'" data-to="paid">Undo</button>' : '') +
+      '</div></div>';
+  }
+
+  function render(d){
+    var liveIds = d.live.map(function(o){ return o.id; });
+    var fresh = seen ? liveIds.filter(function(id){ return seen.indexOf(id) < 0; }) : [];
+    if (fresh.length) beep();
+    seen = liveIds;
+
+    $("nLive").textContent = d.live.length; $("nReady").textContent = d.ready.length; $("nUp").textContent = d.upcoming.length;
+    $("live").innerHTML = d.live.map(function(o){ return card(o, "ready", "Ready", fresh.indexOf(o.id) >= 0); }).join("") || '<p class="empty">Nothing to make. Orders drop in ' + d.leadMinutes + ' minutes before their slot.</p>';
+    $("ready").innerHTML = d.ready.map(function(o){ return card(o, "collected", "Collected"); }).join("") || '<p class="empty">—</p>';
+    $("upcoming").innerHTML = d.upcoming.map(function(o){
+      return '<div class="mini"><span class="t">'+o.slot+'</span><span class="c">'+esc(o.code)+'</span><span class="i">'+esc(o.name)+' · '+wraps(o)+'</span></div>';
+    }).join("") || '<p class="empty">No later orders yet.</p>';
+    $("collected").innerHTML = d.collected.slice().reverse().map(function(o){
+      return '<div class="mini"><span class="t">'+o.slot+'</span><span class="c">'+esc(o.code)+'</span><span class="i">'+esc(o.name)+'</span></div>';
+    }).join("") || '<p class="empty">—</p>';
+
+    $("strip").innerHTML = '<span class="lab">Online slots</span>' + d.slots.map(function(s){
+      var c = ""; for (var i=0;i<d.capacity;i++) c += '<i class="'+(i<s.taken?'':'free')+'"></i>';
+      return '<div><b>'+s.label+'</b><span class="cells">'+c+'</span></div>';
+    }).join("");
+
+    var p = $("pause"); p.dataset.on = d.paused; p.textContent = d.paused ? "Online orders paused — resume" : "Pause online orders";
+  }
+
+  function refresh(){
+    return api("/api/kitchen").then(function(d){ render(d); $("conn").textContent = ""; $("conn").className = "conn"; })
+      .catch(function(e){
+        if (e === "pin"){ lock("Wrong PIN."); return; }
+        $("conn").textContent = "Offline — retrying"; $("conn").className = "conn bad";
+      });
+  }
+
+  document.addEventListener("click", function(e){
+    var b = e.target.closest("button[data-to]"); if (!b) return;
+    b.disabled = true;
+    api("/api/kitchen/orders/" + b.dataset.id, { status: b.dataset.to }).then(refresh);
+  });
+  $("pause").addEventListener("click", function(){
+    var on = this.dataset.on !== "true";
+    if (on && !confirm("Pause online ordering? Customers will be asked to walk in instead.")) return;
+    api("/api/kitchen/pause", { paused: on }).then(refresh);
+  });
+
+  var timer = null;
+  function unlock(){
+    $("gate").hidden = true; $("app").hidden = false;
+    refresh(); clearInterval(timer); timer = setInterval(refresh, 5000);
+  }
+  function lock(msg){
+    clearInterval(timer); $("app").hidden = true; $("gate").hidden = false; $("gateErr").textContent = msg || "";
+    try { localStorage.removeItem(PIN_KEY); } catch(e){}
+    $("pin").value = ""; $("pin").focus();
+  }
+  $("gate").addEventListener("submit", function(e){
+    e.preventDefault(); pin = $("pin").value.trim();
+    api("/api/kitchen").then(function(){ try { localStorage.setItem(PIN_KEY, pin); } catch(e){} unlock(); })
+      .catch(function(err){ $("gateErr").textContent = err === "pin" ? "Wrong PIN." : "Can't reach the server."; });
+  });
+
+  setInterval(function(){ $("clock").textContent = new Date().toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit", timeZone:"Europe/London" }); }, 1000);
+  if (pin) unlock(); else lock();
+})();
+</script>
+</body>
+</html>

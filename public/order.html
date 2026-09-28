@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Order ahead — JULIUS</title>
+<meta name="description" content="Order and pay ahead at JULIUS, Reuters Plaza, Canary Wharf. Pick a 10-minute collection slot and skip the queue." />
+<meta name="theme-color" content="#1F3A2C" />
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F0E8;
+    --paper:#FBF9F4;
+    --ink:#1C1C1A;
+    --green:#1F3A2C;
+    --green-2:#2C4C3A;
+    --sage:#8FA596;
+    --muted:#5E625B;
+    --line:#1C1C1A;
+    --soft:#D9D3C4;
+    --empty:#E6E0D2;
+    --cream:#F3F0E8;
+    --error:#9B2C1F;
+    color-scheme: light;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; }
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Archivo", ui-sans-serif, system-ui, sans-serif;
+    font-size:16px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:120px;
+  }
+  button{ font:inherit; color:inherit; }
+  .wrap{ max-width:640px; margin:0 auto; padding:0 20px; }
+
+  .test{ background:#E9C46A; color:#3A2E0A; text-align:center; font:600 12px/1.4 "Archivo"; letter-spacing:.06em; text-transform:uppercase; padding:8px 16px; }
+
+  header.bar{ display:flex; align-items:baseline; justify-content:space-between; padding:22px 0 18px; border-bottom:2px solid var(--line); }
+  .word{ font:900 28px/1 "Archivo"; font-stretch:112%; letter-spacing:-.01em; color:var(--green); text-decoration:none; }
+  .where{ font:600 11px/1.3 "Archivo"; letter-spacing:.16em; text-transform:uppercase; color:var(--green); text-align:right; }
+
+  h1{ font:800 clamp(34px, 9vw, 48px)/1.02 "Archivo"; letter-spacing:-.025em; margin:28px 0 12px; }
+  .lede{ margin:0 0 8px; color:var(--muted); font-size:16px; max-width:40ch; }
+
+  .eyebrow{ font:700 12px/1 "Archivo"; letter-spacing:.18em; text-transform:uppercase; color:var(--green); margin:40px 0 14px; display:flex; gap:10px; align-items:baseline; }
+  .eyebrow span{ color:var(--ink); }
+  .rule{ border:0; border-top:2px solid var(--line); margin:0; }
+
+  /* menu */
+  .item{ display:grid; grid-template-columns:1fr auto; gap:6px 16px; padding:18px 0; border-bottom:1px solid var(--soft); }
+  .item:last-child{ border-bottom:2px solid var(--line); }
+  .item h3{ margin:0; font:700 18px/1.25 "Archivo"; }
+  .item .tag{ display:block; font:700 10.5px/1 "Archivo"; letter-spacing:.16em; text-transform:uppercase; color:var(--green); margin-bottom:6px; }
+  .item p{ margin:0; font-size:14px; color:var(--muted); grid-column:1; }
+  .item .price{ font:700 18px/1.25 "Archivo"; text-align:right; }
+  .item .qty{ grid-column:2; grid-row:2 / span 2; align-self:end; }
+  .item.flag{ background:var(--green); color:var(--cream); padding:22px 20px; margin:0 -20px; border-bottom:0; }
+  .item.flag .tag{ color:var(--sage); }
+  .item.flag p{ color:#C9D3CB; }
+  .item.flag .step{ border-color:rgba(243,240,232,.5); color:var(--cream); }
+  .item.flag .add{ background:var(--cream); color:var(--green); }
+  @media (min-width:680px){ .item.flag{ margin:0; } }
+
+  .qty{ display:flex; align-items:center; gap:0; }
+  .add{ border:0; background:var(--green); color:var(--cream); font:700 13px/1 "Archivo"; letter-spacing:.08em; text-transform:uppercase; height:40px; padding:0 18px; cursor:pointer; }
+  .step{ width:40px; height:40px; border:1.5px solid var(--line); background:transparent; font:600 20px/1 "Archivo"; cursor:pointer; display:grid; place-items:center; }
+  .count{ min-width:36px; text-align:center; font:700 17px/1 "Archivo"; }
+  .add:active,.step:active{ transform:scale(.96); }
+  .add:focus-visible,.step:focus-visible,.slot:focus-visible,.pay:focus-visible,input:focus-visible{ outline:2px solid var(--green); outline-offset:3px; }
+
+  /* slots */
+  .day{ font:700 20px/1.2 "Archivo"; margin:0 0 4px; }
+  .hint{ margin:0 0 16px; font-size:14px; color:var(--muted); }
+  .slots{ display:grid; grid-template-columns:repeat(auto-fill, minmax(96px,1fr)); gap:8px; }
+  .slot{ border:1.5px solid var(--line); background:var(--paper); padding:10px 10px 9px; text-align:left; cursor:pointer; }
+  .slot b{ display:block; font:700 17px/1 "Archivo"; margin-bottom:8px; }
+  .slot .cells{ display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:3px; }
+  .slot .cells i{ height:6px; background:var(--green); }
+  .slot .cells i.free{ background:var(--empty); }
+  .slot small{ display:block; margin-top:6px; font:600 11px/1 "Archivo"; letter-spacing:.04em; color:var(--muted); }
+  .slot[aria-pressed="true"]{ background:var(--green); color:var(--cream); border-color:var(--green); }
+  .slot[aria-pressed="true"] .cells i.free{ background:rgba(243,240,232,.25); }
+  .slot[aria-pressed="true"] .cells i{ background:var(--cream); }
+  .slot[aria-pressed="true"] small{ color:#C9D3CB; }
+  .slot:disabled{ cursor:not-allowed; opacity:.45; background:transparent; border-color:var(--soft); }
+  .more{ margin-top:12px; background:none; border:0; padding:6px 0; font:600 14px/1 "Archivo"; color:var(--green); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+
+  label.field{ display:block; font:600 14px/1.3 "Archivo"; margin-bottom:8px; }
+  input[type=text]{ width:100%; background:var(--paper); border:1.5px solid var(--line); border-radius:0; font:600 17px/1 "Archivo"; padding:15px 14px; color:var(--ink); outline:none; }
+  input[type=text]::placeholder{ color:#9A9A92; font-weight:500; }
+
+  .note{ border-top:2px solid var(--line); margin-top:40px; padding-top:16px; font-size:14px; color:var(--muted); }
+  .note b{ color:var(--ink); }
+
+  /* checkout bar */
+  .paybar{ position:fixed; left:0; right:0; bottom:0; background:var(--bg); border-top:2px solid var(--line); padding:12px 0 calc(12px + env(safe-area-inset-bottom)); z-index:5; }
+  .paybar .wrap{ display:flex; align-items:center; gap:14px; }
+  .summary{ flex:1; min-width:0; }
+  .summary b{ display:block; font:700 15px/1.25 "Archivo"; }
+  .summary span{ display:block; font-size:12.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pay{ border:0; background:var(--green); color:var(--cream); font:700 15px/1 "Archivo"; letter-spacing:.02em; height:54px; padding:0 22px; cursor:pointer; flex-shrink:0; }
+  .pay:disabled{ background:#A8ADA5; cursor:not-allowed; }
+  .pay[data-busy="true"]{ opacity:.7; }
+  .error{ color:var(--error); font:600 14px/1.4 "Archivo"; margin:10px 0 0; min-height:1px; }
+  .paybar .error{ margin:0; padding:0 20px 6px; max-width:640px; margin:0 auto; }
+
+  .panel{ background:var(--green); color:var(--cream); padding:26px 22px; margin-top:28px; }
+  .panel h2{ margin:0 0 6px; font:800 24px/1.15 "Archivo"; letter-spacing:-.01em; }
+  .panel p{ margin:0; color:#C9D3CB; }
+  .panel .eyebrow{ color:var(--sage); margin:0 0 12px; }
+
+  /* confirmation */
+  .ticket{ margin-top:28px; border:2px solid var(--line); background:var(--paper); }
+  .ticket .top{ background:var(--green); color:var(--cream); padding:22px; }
+  .ticket .top .eyebrow{ color:var(--sage); margin:0 0 10px; }
+  .code{ font:900 clamp(64px, 20vw, 96px)/.9 "Archivo"; font-stretch:112%; letter-spacing:-.02em; }
+  .ticket .top p{ margin:12px 0 0; color:#C9D3CB; }
+  .ticket .body{ padding:20px 22px; }
+  .when{ font:800 26px/1.15 "Archivo"; margin:0 0 4px; }
+  .lines{ margin:16px 0 0; padding:14px 0 0; border-top:1px solid var(--soft); list-style:none; }
+  .lines li{ display:flex; justify-content:space-between; padding:3px 0; }
+  .lines li.total{ border-top:1.5px solid var(--line); margin-top:8px; padding-top:10px; font-weight:700; }
+  .progress{ display:grid; grid-template-columns:repeat(3,1fr); border-top:2px solid var(--line); }
+  .progress div{ padding:14px 12px; font:600 12.5px/1.3 "Archivo"; color:var(--muted); border-right:1px solid var(--soft); }
+  .progress div:last-child{ border-right:0; }
+  .progress div i{ display:block; height:5px; background:var(--empty); margin-bottom:10px; }
+  .progress div.on{ color:var(--ink); }
+  .progress div.on i{ background:var(--green); }
+  .link{ display:inline-block; margin-top:22px; font:600 15px/1 "Archivo"; color:var(--green); }
+
+  .loading{ padding:60px 0; color:var(--muted); }
+  [hidden]{ display:none !important; }
+  @media (prefers-reduced-motion:no-preference){
+    .slot,.add,.step,.pay{ transition:background .15s ease, color .15s ease, transform .1s ease; }
+  }
+</style>
+</head>
+<body>
+<div class="test" id="testBanner" hidden>Demo mode — test payments only, no real money is taken</div>
+
+<div class="wrap">
+  <header class="bar">
+    <a class="word" href="/">JULIUS.</a>
+    <div class="where">Kiosk 4 · Reuters Plaza<br>Canary Wharf</div>
+  </header>
+
+  <div id="loading" class="loading">Loading the menu…</div>
+
+  <!-- ORDER -->
+  <main id="orderView" hidden>
+    <h1>Order ahead.<br>Skip the queue.</h1>
+    <p class="lede">Pay now, pick a 10-minute collection window, and it's ready at the counter when you arrive.</p>
+
+    <div id="notice" class="panel" hidden>
+      <p class="eyebrow">Online ordering</p>
+      <h2 id="noticeTitle"></h2>
+      <p id="noticeText"></p>
+    </div>
+
+    <div id="orderForm">
+      <p class="eyebrow">01 <span>Pick your wraps</span></p>
+      <hr class="rule">
+      <div id="menu"></div>
+
+      <p class="eyebrow">02 <span>Pick a collection slot</span></p>
+      <p class="day" id="dayLabel"></p>
+      <p class="hint">Each slot is a 10-minute window. We take a few online orders per slot so the counter keeps moving.</p>
+      <div class="slots" id="slots" role="group" aria-label="Collection slots"></div>
+      <button class="more" id="moreSlots" type="button" hidden>Show later times</button>
+
+      <p class="eyebrow">03 <span>Name for the order</span></p>
+      <label class="field" for="name">We'll call this out at the counter.</label>
+      <input type="text" id="name" maxlength="40" autocomplete="given-name" placeholder="e.g. Sam" />
+
+      <p class="note"><b>Pay by Apple Pay, Google Pay or card</b> on the next screen. Walk-ins are served by ticket at the counter as usual.</p>
+    </div>
+  </main>
+
+  <!-- CONFIRMATION -->
+  <main id="doneView" hidden>
+    <div class="ticket">
+      <div class="top">
+        <p class="eyebrow" id="doneEyebrow">Your order number</p>
+        <div class="code" id="doneCode">—</div>
+        <p id="doneName"></p>
+      </div>
+      <div class="body">
+        <p class="when" id="doneWhen"></p>
+        <p class="hint" id="doneHint" style="margin:0"></p>
+        <ul class="lines" id="doneLines"></ul>
+      </div>
+      <div class="progress" id="doneProgress">
+        <div data-step="paid"><i></i>Paid</div>
+        <div data-step="kitchen"><i></i>In the kitchen</div>
+        <div data-step="ready"><i></i>Ready to collect</div>
+      </div>
+    </div>
+    <a class="link" href="/order">Place another order</a>
+  </main>
+</div>
+
+<div class="paybar" id="paybar" hidden>
+  <p class="error" id="error" role="alert"></p>
+  <div class="wrap">
+    <div class="summary">
+      <b id="sumTitle">Add a wrap to start</b>
+      <span id="sumSub">Apple Pay · Google Pay · Card</span>
+    </div>
+    <button class="pay" id="payBtn" type="button" disabled>Pay</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var state = { menu:[], slots:[], qty:{}, slot:null, maxItems:6, showAll:false };
+  var $ = function(id){ return document.getElementById(id); };
+  var gbp = function(p){ return "£" + (p/100).toFixed(2); };
+  var params = new URLSearchParams(location.search);
+
+  function show(id){ ["loading","orderView","doneView"].forEach(function(v){ $(v).hidden = v !== id; }); }
+
+  // ---------- order form
+  function totalItems(){ return Object.values(state.qty).reduce(function(a,b){ return a+b; }, 0); }
+  function totalPence(){ return state.menu.reduce(function(s,m){ return s + (state.qty[m.id]||0)*m.price; }, 0); }
+
+  function renderMenu(){
+    var html = state.menu.map(function(m, i){
+      var q = state.qty[m.id] || 0;
+      var ctl = q === 0
+        ? '<button class="add" type="button" data-add="'+m.id+'" aria-label="Add '+m.name+'">Add</button>'
+        : '<button class="step" type="button" data-dec="'+m.id+'" aria-label="One fewer '+m.name+'">−</button>' +
+          '<span class="count" aria-live="polite">'+q+'</span>' +
+          '<button class="step" type="button" data-add="'+m.id+'" aria-label="One more '+m.name+'">+</button>';
+      return '<div class="item'+(i===0?' flag':'')+'">' +
+        '<h3><span class="tag">'+m.tag+'</span>'+m.name+'</h3>' +
+        '<div class="price">'+gbp(m.price)+'</div>' +
+        '<p>'+m.desc+'</p>' +
+        '<div class="qty">'+ctl+'</div></div>';
+    }).join("");
+    $("menu").innerHTML = html;
+  }
+
+  function renderSlots(){
+    var list = state.showAll ? state.slots : state.slots.slice(0, 18);
+    $("slots").innerHTML = list.map(function(s){
+      var cap = state.capacity, taken = cap - Math.min(cap, s.left), cells = "";
+      for (var i=0;i<cap;i++) cells += '<i class="'+(i<taken?'':'free')+'"></i>';
+      var full = s.left <= 0;
+      return '<button class="slot" type="button" data-slot="'+s.start+'" aria-pressed="'+(state.slot===s.start)+'"'+(full?' disabled':'')+'>' +
+        '<b>'+s.label+'</b><span class="cells" aria-hidden="true">'+cells+'</span>' +
+        '<small>'+(full ? 'Full' : s.left+' left')+'</small></button>';
+    }).join("");
+    $("moreSlots").hidden = state.showAll || state.slots.length <= 18;
+  }
+
+  function renderBar(){
+    var n = totalItems(), slot = state.slots.find(function(s){ return s.start === state.slot; });
+    $("sumTitle").textContent = n ? (n + (n===1?" wrap":" wraps") + " · " + gbp(totalPence())) : "Add a wrap to start";
+    $("sumSub").textContent = slot ? ("Collect " + $("dayLabel").textContent.toLowerCase() + " " + slot.label) : (n ? "Now pick a collection slot" : "Apple Pay · Google Pay · Card");
+    var ready = n > 0 && slot && $("name").value.trim().length > 0;
+    $("payBtn").disabled = !ready;
+    $("payBtn").textContent = n ? "Pay " + gbp(totalPence()) : "Pay";
+  }
+
+  document.addEventListener("click", function(e){
+    var t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.add){
+      if (totalItems() >= state.maxItems){ $("error").textContent = "Online orders are up to " + state.maxItems + " wraps."; return; }
+      state.qty[t.dataset.add] = (state.qty[t.dataset.add]||0) + 1; $("error").textContent = ""; renderMenu(); renderBar();
+    } else if (t.dataset.dec){
+      state.qty[t.dataset.dec] = Math.max(0, (state.qty[t.dataset.dec]||0) - 1); $("error").textContent = ""; renderMenu(); renderBar();
+    } else if (t.dataset.slot){
+      state.slot = t.dataset.slot; renderSlots(); renderBar();
+    }
+  });
+  $("moreSlots").addEventListener("click", function(){ state.showAll = true; renderSlots(); });
+  $("name").addEventListener("input", renderBar);
+
+  $("payBtn").addEventListener("click", function(){
+    var btn = this; if (btn.dataset.busy === "true") return;
+    btn.dataset.busy = "true"; btn.textContent = "Opening payment…"; $("error").textContent = "";
+    fetch("/api/checkout", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        name: $("name").value.trim(), slot: state.slot,
+        items: Object.keys(state.qty).filter(function(k){ return state.qty[k] > 0; }).map(function(k){ return {id:k, qty:state.qty[k]}; })
+      })
+    }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){
+        if (res.ok && res.j.url){ location.href = res.j.url; return; }
+        $("error").textContent = res.j.error || "Something went wrong. Try again.";
+        btn.dataset.busy = "false";
+        if (res.j.full || /slot|time/i.test(res.j.error||"")){ state.slot = null; loadMenu(true); } else renderBar();
+      })
+      .catch(function(){ $("error").textContent = "Couldn't reach us. Check your connection."; btn.dataset.busy = "false"; renderBar(); });
+  });
+
+  function loadMenu(keep){
+    return fetch("/api/menu").then(function(r){ return r.json(); }).then(function(d){
+      state.menu = d.menu; state.slots = d.slots; state.maxItems = d.maxItems; state.capacity = d.capacity;
+      $("testBanner").hidden = !d.testMode;
+      $("dayLabel").textContent = d.day;
+      if (state.slot && !d.slots.some(function(s){ return s.start === state.slot && s.left > 0; })) state.slot = null;
+      var open = !d.paused && d.slots.some(function(s){ return s.left > 0; });
+      $("notice").hidden = open;
+      $("orderForm").hidden = !open;
+      $("paybar").hidden = !open;
+      if (!open){
+        $("noticeTitle").textContent = d.paused ? "Paused for a moment." : "No slots left today.";
+        $("noticeText").textContent = d.paused
+          ? "The counter is at capacity, so we've paused online orders. Walk-ins are still welcome — or check back in a few minutes."
+          : "Every online slot is taken. Walk-ins are still welcome at the counter.";
+      }
+      if (!keep) renderMenu();
+      renderSlots(); renderBar(); show("orderView");
+    });
+  }
+
+  // ---------- confirmation
+  var pollTimer = null;
+  function loadOrder(token){
+    fetch("/api/order/" + encodeURIComponent(token)).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){
+        if (!res.ok){ loadMenu(); return; }
+        var o = res.j;
+        if (o.status === "pending" || o.status === "cancelled" || o.status === "expired"){
+          if (o.status === "pending"){ $("doneCode").textContent = "…"; $("doneEyebrow").textContent = "Confirming your payment"; show("doneView"); pollTimer = setTimeout(function(){ loadOrder(token); }, 2500); return; }
+          loadMenu(); $("error").textContent = "That payment didn't go through, so nothing was charged."; return;
+        }
+        $("doneEyebrow").textContent = o.status === "ready" ? "Ready at the counter" : o.status === "collected" ? "Collected — enjoy" : "Your order number";
+        $("doneCode").textContent = o.code;
+        $("doneName").textContent = "Order for " + o.name + ". Show this at the counter.";
+        $("doneWhen").textContent = "Collect " + o.slotDay.toLowerCase() + ", " + o.slot + "–" + o.slotEnd;
+        $("doneHint").textContent = "Kiosk 4, Reuters Plaza. Skip the queue and go straight to the hand-off point.";
+        $("doneLines").innerHTML = o.items.map(function(i){ return "<li><span>"+i.qty+" × "+i.name+"</span><span>"+gbp(i.qty*i.price)+"</span></li>"; }).join("") +
+          '<li class="total"><span>Paid</span><span>'+gbp(o.total)+'</span></li>';
+        var steps = { paid:1, kitchen:2, ready:3, collected:3 };
+        var level = o.status === "paid" ? (o.inKitchen ? 2 : 1) : steps[o.status] || 1;
+        Array.prototype.forEach.call($("doneProgress").children, function(el, i){ el.classList.toggle("on", i < level); });
+        show("doneView");
+        if (o.status !== "collected") pollTimer = setTimeout(function(){ loadOrder(token); }, 15000);
+      }).catch(function(){ pollTimer = setTimeout(function(){ loadOrder(token); }, 5000); });
+  }
+
+  // ---------- boot
+  if (params.get("o")){
+    show("loading"); $("loading").textContent = "Confirming your order…";
+    loadOrder(params.get("o"));
+  } else if (params.get("cancel")){
+    fetch("/api/order/" + encodeURIComponent(params.get("cancel")) + "/cancel", {method:"POST"}).finally(function(){
+      history.replaceState(null, "", "/order");
+      loadMenu().then(function(){ $("error").textContent = "Payment cancelled — nothing was charged."; });
+    });
+  } else {
+    loadMenu();
+  }
+  setInterval(function(){ if (!$("orderView").hidden && $("payBtn").dataset.busy !== "true") loadMenu(true); }, 30000);
+})();
+</script>
+</body>
+</html>
