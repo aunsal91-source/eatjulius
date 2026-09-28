@@ -49,7 +49,7 @@ MENU = [
      "desc": "Grilled chicken, romaine, parmesan, avocado, chipotle crema with lime and cumin."},
     {"id": "goddess", "name": "Green Goddess Caesar", "tag": "The light one", "price": 1145,
      "desc": "Grilled chicken, romaine, parmesan, avocado and herb ranch with basil, chives and tarragon."},
-    {"id": "truffle", "name": "Black Truffle Caesar", "tag": "The indulgent one", "price": 1295,
+    {"id": "truffle", "name": "Black Truffle Caesar", "tag": "The indulgent one", "price": 1195,
      "desc": "Grilled chicken, romaine, parmesan, roasted mushrooms, black truffle tapenade and garlic aioli."},
 ]
 MENU_BY_ID = {m["id"]: m for m in MENU}
