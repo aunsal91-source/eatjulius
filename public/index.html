@@ -151,6 +151,28 @@
   form[data-sent="true"]{ display: none; }
   form[data-sent="true"] ~ .confirm{ display: block; opacity: 0; animation: rise .5s ease-out forwards; }
 
+  .order-cta{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    height: 54px;
+    margin-top: 6px;
+    border: 1.5px solid var(--ink);
+    border-radius: 12px;
+    color: var(--ink);
+    text-decoration: none;
+    font: 700 13px/1 "Work Sans", sans-serif;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    opacity: 0;
+    animation: rise .6s ease-out .42s forwards;
+    transition: background .15s ease, color .15s ease;
+  }
+  .order-cta:hover{ background: var(--ink); color: var(--bg); }
+  .order-cta:focus-visible{ outline: 2px solid var(--ink); outline-offset: 3px; }
+
   footer{
     margin-top: 2px;
     font: 600 11px/1 "Work Sans", sans-serif;
@@ -166,7 +188,7 @@
     to{ opacity: 1; transform: translateY(0); }
   }
   @media (prefers-reduced-motion: reduce){
-    .lockup, .photo, .eyebrow, p.lede, form, footer{
+    .lockup, .photo, .eyebrow, p.lede, form, .order-cta, footer{
       animation: none !important;
       opacity: 1 !important;
       transform: none !important;
@@ -204,6 +226,8 @@
     <button type="submit">Notify Me</button>
   </form>
   <p class="confirm">You're on the list &mdash; <b>see you at the counter.</b></p>
+
+  <a class="order-cta" href="/order">Order ahead, skip the queue <span aria-hidden="true">&rarr;</span></a>
 
   <footer>eatjulius.com</footer>
 </div>
