@@ -9,6 +9,7 @@ import json
 import os
 import secrets
 import time
+import urllib.parse
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -17,7 +18,9 @@ import psycopg2
 import psycopg2.extras
 import stripe
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory
+
+import printing
 
 load_dotenv()
 
@@ -25,6 +28,9 @@ STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 KITCHEN_PIN = os.environ.get("KITCHEN_PIN", "")
+# Secret path segment for the Star CloudPRNT printer: /cloudprnt/<token>
+PRINTER_TOKEN = os.environ.get("PRINTER_TOKEN", "")
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")
 PORT = int(os.environ.get("PORT", "5190"))
 DEBUG = os.environ.get("FLASK_DEBUG", "0") == "1"
 
@@ -98,6 +104,7 @@ def init_db():
                 collected_at TIMESTAMPTZ
             );
             CREATE INDEX IF NOT EXISTS orders_slot_idx ON orders (slot_start);
+            ALTER TABLE orders ADD COLUMN IF NOT EXISTS printed_at TIMESTAMPTZ;
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
@@ -414,6 +421,7 @@ def api_kitchen():
         d = order_public(r)
         d["id"] = r["id"]
         d["phone"] = r["phone"]
+        d["printed"] = r["printed_at"] is not None
         return d
 
     live = [card(r) for r in rows if r["status"] == "paid" and r["slot_start"] <= release_before]
@@ -427,6 +435,7 @@ def api_kitchen():
         "paused": is_paused(), "capacity": SLOT_CAPACITY,
         "slots": [{"label": s["label"], "taken": SLOT_CAPACITY - s["left"]} for s in slots[:12]],
         "leadMinutes": KITCHEN_LEAD_MINUTES,
+        "printer": printer_status(),
     })
 
 
@@ -445,6 +454,15 @@ def api_kitchen_status(order_id):
     return jsonify({"ok": True})
 
 
+@app.post("/api/kitchen/orders/<int:order_id>/reprint")
+def api_kitchen_reprint(order_id):
+    if not kitchen_ok():
+        return jsonify({"error": "Wrong PIN."}), 401
+    with get_conn() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE orders SET printed_at = NULL WHERE id = %s", (order_id,))
+    return jsonify({"ok": True})
+
+
 @app.post("/api/kitchen/pause")
 def api_kitchen_pause():
     if not kitchen_ok():
@@ -452,6 +470,104 @@ def api_kitchen_pause():
     paused = bool((request.get_json(silent=True) or {}).get("paused"))
     set_setting("paused", "1" if paused else "0")
     return jsonify({"paused": paused})
+
+
+# ---------------------------------------------------------------- printer (Star CloudPRNT)
+#
+# The printer polls POST /cloudprnt/<token> every few seconds. When an order
+# is due in the kitchen (slot starts within KITCHEN_LEAD_MINUTES) and hasn't
+# printed, we answer jobReady; the printer GETs the job, prints it, then
+# DELETEs to confirm and we stamp printed_at. A failed print is retried.
+
+# Don't flood the printer with old orders the first time it connects.
+PRINT_LOOKBACK_MINUTES = 30
+PRINTER_ONLINE_SECONDS = 30
+
+
+def printer_ok(token):
+    return bool(PRINTER_TOKEN) and secrets.compare_digest(token, PRINTER_TOKEN)
+
+
+def printer_status():
+    if not PRINTER_TOKEN:
+        return None
+    last = get_setting("printer_seen")
+    if not last:
+        return {"online": False, "lastSeen": None, "status": ""}
+    seen = datetime.fromisoformat(last)
+    return {
+        "online": (now_utc() - seen).total_seconds() < PRINTER_ONLINE_SECONDS,
+        "lastSeen": seen.astimezone(TZ).strftime("%H:%M"),
+        "status": get_setting("printer_status", ""),
+    }
+
+
+def next_print_job():
+    with get_conn() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute("""SELECT * FROM orders
+                       WHERE status IN ('paid','ready') AND printed_at IS NULL
+                         AND slot_start <= %s AND slot_start >= %s
+                       ORDER BY slot_start, paid_at LIMIT 1""",
+                    (now_utc() + timedelta(minutes=KITCHEN_LEAD_MINUTES),
+                     now_utc() - timedelta(minutes=PRINT_LOOKBACK_MINUTES)))
+        return cur.fetchone()
+
+
+def order_url(row):
+    base = PUBLIC_URL or request.host_url.rstrip("/")
+    return f"{base}/order?o={row['token']}"
+
+
+@app.post("/cloudprnt/<token>")
+def cloudprnt_poll(token):
+    if not printer_ok(token):
+        return "", 404
+    body = request.get_json(force=True, silent=True) or {}
+    set_setting("printer_seen", now_utc().isoformat())
+    set_setting("printer_status", urllib.parse.unquote(str(body.get("statusCode") or "")))
+    job = next_print_job()
+    if not job:
+        return jsonify({"jobReady": False})
+    return jsonify({
+        "jobReady": True,
+        "mediaTypes": ["application/vnd.star.starprnt", "text/plain"],
+        "jobToken": str(job["id"]),
+    })
+
+
+@app.get("/cloudprnt/<token>")
+def cloudprnt_job(token):
+    if not printer_ok(token):
+        return "", 404
+    job_id = request.args.get("token") or ""
+    with get_conn() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        if job_id.isdigit():
+            cur.execute("SELECT * FROM orders WHERE id = %s", (int(job_id),))
+            row = cur.fetchone()
+        else:
+            row = None
+    row = row or next_print_job()
+    if not row:
+        return "", 404
+    # older firmware may not echo jobToken on DELETE; remember what we sent
+    set_setting("printer_job", str(row["id"]))
+    order = order_public(row)
+    if request.args.get("type") == "text/plain":
+        return Response(printing.plain_text(order, order_url(row)), mimetype="text/plain")
+    return Response(printing.starprnt(order, order_url(row)), mimetype="application/vnd.star.starprnt")
+
+
+@app.delete("/cloudprnt/<token>")
+def cloudprnt_done(token):
+    if not printer_ok(token):
+        return "", 404
+    job_id = request.args.get("token") or get_setting("printer_job", "")
+    code = urllib.parse.unquote(request.args.get("code") or "")
+    # "200 OK" / 2xx = printed; anything else leaves it queued for a retry
+    if job_id.isdigit() and code.startswith("2"):
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute("UPDATE orders SET printed_at = now() WHERE id = %s", (int(job_id),))
+    return "", 200
 
 
 # ---------------------------------------------------------------- pages

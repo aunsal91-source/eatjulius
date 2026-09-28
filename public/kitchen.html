@@ -28,6 +28,10 @@
   .pause[data-on="true"]{ background:var(--alert); border-color:var(--alert); color:#fff; }
   .conn{ font:600 12px/1 "Archivo"; color:var(--muted); }
   .conn.bad{ color:var(--alert); }
+  .printer{ font:600 12px/1 "Archivo"; color:var(--muted); display:flex; align-items:center; gap:6px; }
+  .printer i{ width:9px; height:9px; border-radius:50%; background:var(--alert); }
+  .printer.on i{ background:#3C8C5A; }
+  .card .printed{ font:600 12px/1 "Archivo"; color:var(--muted); padding:0 14px 10px; }
 
   .strip{ display:flex; gap:6px; padding:14px 24px; border-bottom:1px solid var(--soft); overflow-x:auto; scrollbar-width:none; }
   .strip div{ min-width:64px; }
@@ -85,6 +89,7 @@
     <span class="word">JULIUS.</span>
     <span class="clock" id="clock"></span>
     <span class="conn" id="conn"></span>
+    <span class="printer" id="printer" hidden><i></i><span></span></span>
     <span class="sp"></span>
     <button class="pause" id="pause" type="button" data-on="false">Pause online orders</button>
   </header>
@@ -143,13 +148,24 @@
   function card(o, action, label, isNew){
     return '<div class="card'+(isNew?' new':'')+'"><div class="hd"><span class="code">'+esc(o.code)+'</span>' +
       '<span class="who">'+esc(o.name)+'</span><span class="slot">'+o.slot+'</span></div>' +
-      '<ul>'+items(o)+'</ul><div class="act">' +
+      '<ul>'+items(o)+'</ul>' +
+      (printerOn ? '<div class="printed">'+(o.printed ? 'Printed' : 'Waiting for printer…')+'</div>' : '') +
+      '<div class="act">' +
       '<button type="button" data-id="'+o.id+'" data-to="'+action+'">'+label+'</button>' +
       (action === "collected" ? '<button class="ghost" type="button" data-id="'+o.id+'" data-to="paid">Undo</button>' : '') +
+      (printerOn ? '<button class="ghost" type="button" data-reprint="'+o.id+'">Reprint</button>' : '') +
       '</div></div>';
   }
 
+  var printerOn = false;
   function render(d){
+    printerOn = !!d.printer;
+    var pr = $("printer"); pr.hidden = !d.printer;
+    if (d.printer){
+      pr.className = "printer" + (d.printer.online ? " on" : "");
+      pr.lastChild.textContent = d.printer.online ? "Printer online"
+        : (d.printer.lastSeen ? "Printer offline since " + d.printer.lastSeen : "Printer not connected");
+    }
     var liveIds = d.live.map(function(o){ return o.id; });
     var fresh = seen ? liveIds.filter(function(id){ return seen.indexOf(id) < 0; }) : [];
     if (fresh.length) beep();
@@ -182,6 +198,8 @@
   }
 
   document.addEventListener("click", function(e){
+    var r = e.target.closest("button[data-reprint]");
+    if (r){ r.disabled = true; api("/api/kitchen/orders/" + r.dataset.reprint + "/reprint", {}).then(refresh); return; }
     var b = e.target.closest("button[data-to]"); if (!b) return;
     b.disabled = true;
     api("/api/kitchen/orders/" + b.dataset.id, { status: b.dataset.to }).then(refresh);
