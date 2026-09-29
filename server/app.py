@@ -7,6 +7,7 @@ queue is never slowed down. Paid orders appear on the kitchen screen
 """
 import json
 import os
+import re
 import secrets
 import time
 import urllib.parse
@@ -18,8 +19,9 @@ import psycopg2
 import psycopg2.extras
 import stripe
 from dotenv import load_dotenv
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, has_request_context, jsonify, request, send_from_directory
 
+import mailer
 import printing
 
 load_dotenv()
@@ -44,12 +46,14 @@ KITCHEN_LEAD_MINUTES = int(os.environ.get("KITCHEN_LEAD_MINUTES", "3"))
 HOLD_MINUTES = int(os.environ.get("HOLD_MINUTES", "10"))
 MAX_ITEMS_PER_ORDER = int(os.environ.get("MAX_ITEMS_PER_ORDER", "6"))
 
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
 TZ = ZoneInfo("Europe/London")
 # weekday() -> (open, close); Mon–Fri 11:00–21:00, Sat–Sun 11:00–18:00
 HOURS = {d: ("11:00", "21:00") for d in range(5)} | {5: ("11:00", "18:00"), 6: ("11:00", "18:00")}
 
 MENU = [
-    {"id": "original", "name": "The Original Caesar", "tag": "Flagship · Signature sauce", "price": 1095,
+    {"id": "original", "name": "The Original Caesar", "tag": "The classic", "price": 1095,
      "desc": "Grilled chicken, romaine, parmesan and our signature Caesar: Parmigiano-Reggiano, anchovy, garlic, Dijon and lemon."},
     {"id": "chipotle", "name": "Smoky Chipotle Caesar", "tag": "The energy kick", "price": 1145,
      "desc": "Grilled chicken, romaine, parmesan, avocado, chipotle crema with lime and cumin."},
@@ -105,6 +109,7 @@ def init_db():
             );
             CREATE INDEX IF NOT EXISTS orders_slot_idx ON orders (slot_start);
             ALTER TABLE orders ADD COLUMN IF NOT EXISTS printed_at TIMESTAMPTZ;
+            ALTER TABLE orders ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ;
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
@@ -239,9 +244,21 @@ def mark_paid(session):
         cur.execute("SELECT count(*) FROM orders WHERE code IS NOT NULL AND paid_at >= %s", (day_start,))
         code = f"O-{cur.fetchone()[0] + 1}"
         cur.execute("""UPDATE orders SET status = 'paid', paid_at = now(), code = %s,
-                           email = %s, phone = %s
+                           email = COALESCE(email, %s), phone = %s
                        WHERE id = %s""",
                     (code, details.get("email"), details.get("phone"), order_id))
+    send_confirmation(order_id)
+
+
+def send_confirmation(order_id):
+    """Email the order details once; the stamp stops webhook + page double-sends."""
+    with get_conn() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+        cur.execute("""UPDATE orders SET email_sent_at = now()
+                       WHERE id = %s AND email_sent_at IS NULL AND email IS NOT NULL
+                       RETURNING *""", (order_id,))
+        row = cur.fetchone()
+    if row:
+        mailer.send_async(row["email"], order_public(row), order_url(row))
 
 
 # ---------------------------------------------------------------- public API
@@ -272,6 +289,9 @@ def api_checkout():
     name = (body.get("name") or "").strip()[:40]
     if not name:
         return jsonify({"error": "Enter a name for the order."}), 400
+    email = (body.get("email") or "").strip()[:120]
+    if not EMAIL_RE.match(email):
+        return jsonify({"error": "Enter a valid email so we can send your order details."}), 400
 
     items, count, total = [], 0, 0
     for it in body.get("items") or []:
@@ -305,9 +325,9 @@ def api_checkout():
         cur.execute(f"SELECT count(*) FROM orders WHERE slot_start = %s AND {ACTIVE_SQL}", (slot,))
         if cur.fetchone()[0] >= SLOT_CAPACITY:
             return jsonify({"error": f"{slot.astimezone(TZ):%H:%M} just filled up. Pick the next slot.", "full": True}), 409
-        cur.execute("""INSERT INTO orders (token, slot_start, customer_name, items, total_pence, hold_expires_at)
-                       VALUES (%s, %s, %s, %s, %s, now() + %s * interval '1 minute') RETURNING id""",
-                    (token, slot, name, json.dumps(items), total, HOLD_MINUTES))
+        cur.execute("""INSERT INTO orders (token, slot_start, customer_name, email, items, total_pence, hold_expires_at)
+                       VALUES (%s, %s, %s, %s, %s, %s, now() + %s * interval '1 minute') RETURNING id""",
+                    (token, slot, name, email, json.dumps(items), total, HOLD_MINUTES))
         order_id = cur.fetchone()[0]
 
     origin = request.headers.get("Origin") or request.host_url.rstrip("/")
@@ -325,6 +345,7 @@ def api_checkout():
                 },
                 "quantity": i["qty"],
             } for i in items],
+            customer_email=email,
             phone_number_collection={"enabled": True},
             payment_intent_data={"description": f"JULIUS order for {name}, collect {slot_label}"},
             custom_text={"submit": {"message": f"Collection at the JULIUS kiosk, Reuters Plaza, {slot_label}–"
@@ -514,7 +535,7 @@ def next_print_job():
 
 
 def order_url(row):
-    base = PUBLIC_URL or request.host_url.rstrip("/")
+    base = PUBLIC_URL or (request.host_url.rstrip("/") if has_request_context() else "https://eatjulius.com")
     return f"{base}/order?o={row['token']}"
 
 

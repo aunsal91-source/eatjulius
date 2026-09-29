@@ -59,12 +59,6 @@
   .item p{ margin:0; font-size:14px; color:var(--muted); grid-column:1; }
   .item .price{ font:700 18px/1.25 "Archivo"; text-align:right; }
   .item .qty{ grid-column:2; grid-row:2 / span 2; align-self:end; }
-  .item.flag{ background:var(--green); color:var(--cream); padding:22px 20px; margin:0 -20px; border-bottom:0; }
-  .item.flag .tag{ color:var(--sage); }
-  .item.flag p{ color:#C9D3CB; }
-  .item.flag .step{ border-color:rgba(243,240,232,.5); color:var(--cream); }
-  .item.flag .add{ background:var(--cream); color:var(--green); }
-  @media (min-width:680px){ .item.flag{ margin:0; } }
 
   .qty{ display:flex; align-items:center; gap:0; }
   .add{ border:0; background:var(--green); color:var(--cream); font:700 13px/1 "Archivo"; letter-spacing:.08em; text-transform:uppercase; height:40px; padding:0 18px; cursor:pointer; }
@@ -91,8 +85,8 @@
   .more{ margin-top:12px; background:none; border:0; padding:6px 0; font:600 14px/1 "Archivo"; color:var(--green); text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
 
   label.field{ display:block; font:600 14px/1.3 "Archivo"; margin-bottom:8px; }
-  input[type=text]{ width:100%; background:var(--paper); border:1.5px solid var(--line); border-radius:0; font:600 17px/1 "Archivo"; padding:15px 14px; color:var(--ink); outline:none; }
-  input[type=text]::placeholder{ color:#9A9A92; font-weight:500; }
+  input[type=text],input[type=email]{ width:100%; background:var(--paper); border:1.5px solid var(--line); border-radius:0; font:600 17px/1 "Archivo"; padding:15px 14px; color:var(--ink); outline:none; }
+  input[type=text]::placeholder,input[type=email]::placeholder{ color:#9A9A92; font-weight:500; }
 
   .note{ border-top:2px solid var(--line); margin-top:40px; padding-top:16px; font-size:14px; color:var(--muted); }
   .note b{ color:var(--ink); }
@@ -173,11 +167,13 @@
       <div class="slots" id="slots" role="group" aria-label="Collection slots"></div>
       <button class="more" id="moreSlots" type="button" hidden>Show later times</button>
 
-      <p class="eyebrow">03 <span>Name for the order</span></p>
-      <label class="field" for="name">We'll call this out at the counter.</label>
+      <p class="eyebrow">03 <span>Your details</span></p>
+      <label class="field" for="name">Name — we'll call this out at the counter.</label>
       <input type="text" id="name" maxlength="40" autocomplete="given-name" placeholder="e.g. Sam" />
+      <label class="field" for="email" style="margin-top:16px">Email — we'll send your order details here.</label>
+      <input type="email" id="email" maxlength="120" autocomplete="email" inputmode="email" placeholder="you@company.com" />
 
-      <p class="note"><b>Pay by Apple Pay, Google Pay or card</b> on the next screen. Walk-ins are served by ticket at the counter as usual.</p>
+      <p class="note"><b>Pay</b> on the next screen. Walk-ins are served by ticket at the counter as usual.</p>
     </div>
   </main>
 
@@ -229,14 +225,14 @@
   function totalPence(){ return state.menu.reduce(function(s,m){ return s + (state.qty[m.id]||0)*m.price; }, 0); }
 
   function renderMenu(){
-    var html = state.menu.map(function(m, i){
+    var html = state.menu.map(function(m){
       var q = state.qty[m.id] || 0;
       var ctl = q === 0
         ? '<button class="add" type="button" data-add="'+m.id+'" aria-label="Add '+m.name+'">Add</button>'
         : '<button class="step" type="button" data-dec="'+m.id+'" aria-label="One fewer '+m.name+'">−</button>' +
           '<span class="count" aria-live="polite">'+q+'</span>' +
           '<button class="step" type="button" data-add="'+m.id+'" aria-label="One more '+m.name+'">+</button>';
-      return '<div class="item'+(i===0?' flag':'')+'">' +
+      return '<div class="item">' +
         '<h3><span class="tag">'+m.tag+'</span>'+m.name+'</h3>' +
         '<div class="price">'+gbp(m.price)+'</div>' +
         '<p>'+m.desc+'</p>' +
@@ -262,7 +258,7 @@
     var n = totalItems(), slot = state.slots.find(function(s){ return s.start === state.slot; });
     $("sumTitle").textContent = n ? (n + (n===1?" wrap":" wraps") + " · " + gbp(totalPence())) : "Add a wrap to start";
     $("sumSub").textContent = slot ? ("Collect " + $("dayLabel").textContent.toLowerCase() + " " + slot.label) : (n ? "Now pick a collection slot" : "Apple Pay · Google Pay · Card");
-    var ready = n > 0 && slot && $("name").value.trim().length > 0;
+    var ready = n > 0 && slot && $("name").value.trim().length > 0 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test($("email").value.trim());
     $("payBtn").disabled = !ready;
     $("payBtn").textContent = n ? "Pay " + gbp(totalPence()) : "Pay";
   }
@@ -280,6 +276,7 @@
   });
   $("moreSlots").addEventListener("click", function(){ state.showAll = true; renderSlots(); });
   $("name").addEventListener("input", renderBar);
+  $("email").addEventListener("input", renderBar);
 
   $("payBtn").addEventListener("click", function(){
     var btn = this; if (btn.dataset.busy === "true") return;
@@ -287,7 +284,7 @@
     fetch("/api/checkout", {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
-        name: $("name").value.trim(), slot: state.slot,
+        name: $("name").value.trim(), email: $("email").value.trim(), slot: state.slot,
         items: Object.keys(state.qty).filter(function(k){ return state.qty[k] > 0; }).map(function(k){ return {id:k, qty:state.qty[k]}; })
       })
     }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
