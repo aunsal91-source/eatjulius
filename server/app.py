@@ -110,6 +110,8 @@ def init_db():
             CREATE INDEX IF NOT EXISTS orders_slot_idx ON orders (slot_start);
             ALTER TABLE orders ADD COLUMN IF NOT EXISTS printed_at TIMESTAMPTZ;
             ALTER TABLE orders ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ;
+            -- set when the kitchen starts an order before its usual drop time
+            ALTER TABLE orders ADD COLUMN IF NOT EXISTS released_at TIMESTAMPTZ;
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
@@ -213,8 +215,14 @@ def order_public(row):
         "slot": slot.strftime("%H:%M"),
         "slotEnd": (slot + timedelta(minutes=SLOT_MINUTES)).strftime("%H:%M"),
         "slotDay": day_label(slot.date()),
-        "inKitchen": row["slot_start"] - timedelta(minutes=KITCHEN_LEAD_MINUTES) <= now_utc(),
+        "inKitchen": is_released(row),
     }
+
+
+def is_released(row):
+    """In the kitchen: KITCHEN_LEAD_MINUTES before the slot, or started early by hand."""
+    return (row.get("released_at") is not None
+            or row["slot_start"] - timedelta(minutes=KITCHEN_LEAD_MINUTES) <= now_utc())
 
 
 def get_order(token=None, session_id=None):
@@ -429,7 +437,6 @@ def api_kitchen():
     if not kitchen_ok():
         return jsonify({"error": "Wrong PIN."}), 401
     now = now_utc()
-    release_before = now + timedelta(minutes=KITCHEN_LEAD_MINUTES)
     today = datetime.now(TZ).date()
     day_start = datetime(today.year, today.month, today.day, tzinfo=TZ)
     with get_conn() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -445,9 +452,9 @@ def api_kitchen():
         d["printed"] = r["printed_at"] is not None
         return d
 
-    live = [card(r) for r in rows if r["status"] == "paid" and r["slot_start"] <= release_before]
+    live = [card(r) for r in rows if r["status"] == "paid" and is_released(r)]
     ready = [card(r) for r in rows if r["status"] == "ready"]
-    upcoming = [card(r) for r in rows if r["status"] == "paid" and r["slot_start"] > release_before]
+    upcoming = [card(r) for r in rows if r["status"] == "paid" and not is_released(r)]
     collected = [card(r) for r in rows if r["status"] == "collected"][-8:]
 
     _, slots = available_slots()
@@ -481,6 +488,23 @@ def api_kitchen_reprint(order_id):
         return jsonify({"error": "Wrong PIN."}), 401
     with get_conn() as conn, conn.cursor() as cur:
         cur.execute("UPDATE orders SET printed_at = NULL WHERE id = %s", (order_id,))
+    return jsonify({"ok": True})
+
+
+@app.post("/api/kitchen/start")
+def api_kitchen_start():
+    """Move orders from Coming up to Make now: one ({"id": n}) or all."""
+    if not kitchen_ok():
+        return jsonify({"error": "Wrong PIN."}), 401
+    order_id = (request.get_json(silent=True) or {}).get("id")
+    with get_conn() as conn, conn.cursor() as cur:
+        if order_id:
+            cur.execute("""UPDATE orders SET released_at = now()
+                           WHERE id = %s AND status = 'paid' AND released_at IS NULL""", (int(order_id),))
+        else:
+            cur.execute("""UPDATE orders SET released_at = now()
+                           WHERE status = 'paid' AND released_at IS NULL AND slot_start >= %s""",
+                        (now_utc() - timedelta(hours=2),))
     return jsonify({"ok": True})
 
 
@@ -527,7 +551,7 @@ def next_print_job():
     with get_conn() as conn, conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
         cur.execute("""SELECT * FROM orders
                        WHERE status IN ('paid','ready') AND printed_at IS NULL
-                         AND slot_start <= %s AND slot_start >= %s
+                         AND (slot_start <= %s OR released_at IS NOT NULL) AND slot_start >= %s
                        ORDER BY slot_start, paid_at LIMIT 1""",
                     (now_utc() + timedelta(minutes=KITCHEN_LEAD_MINUTES),
                      now_utc() - timedelta(minutes=PRINT_LOOKBACK_MINUTES)))

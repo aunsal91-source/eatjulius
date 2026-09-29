@@ -64,7 +64,10 @@
   .mini{ display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--soft); font:600 15px/1.3 "Archivo"; }
   .mini .t{ font-variant-numeric:tabular-nums; font-weight:700; min-width:48px; }
   .mini .c{ min-width:44px; font-weight:800; }
+  .mini{ align-items:center; }
   .mini .i{ color:var(--muted); flex:1; }
+  .mini .start, .startall{ border:1.5px solid var(--ink); background:transparent; height:34px; padding:0 12px; font:700 11px/1 "Archivo"; letter-spacing:.08em; text-transform:uppercase; color:var(--ink); }
+  .startall{ height:28px; margin-right:8px; }
   .empty{ color:var(--muted); font-size:15px; padding:8px 0; }
 
   .gate{ max-width:360px; margin:18vh auto 0; padding:0 24px; text-align:center; }
@@ -104,7 +107,7 @@
       <div id="ready"></div>
     </section>
     <section class="col">
-      <h2>Coming up <span id="nUp">0</span></h2>
+      <h2>Coming up <span><button class="startall" id="startAll" type="button" hidden>Start all</button> <span id="nUp">0</span></span></h2>
       <div id="upcoming"></div>
       <h2 style="margin-top:28px">Collected</h2>
       <div id="collected"></div>
@@ -175,8 +178,10 @@
     $("live").innerHTML = d.live.map(function(o){ return card(o, "ready", "Ready", fresh.indexOf(o.id) >= 0); }).join("") || '<p class="empty">Nothing to make. Orders drop in ' + d.leadMinutes + ' minutes before their slot.</p>';
     $("ready").innerHTML = d.ready.map(function(o){ return card(o, "collected", "Collected"); }).join("") || '<p class="empty">—</p>';
     $("upcoming").innerHTML = d.upcoming.map(function(o){
-      return '<div class="mini"><span class="t">'+o.slot+'</span><span class="c">'+esc(o.code)+'</span><span class="i">'+esc(o.name)+' · '+wraps(o)+'</span></div>';
+      return '<div class="mini"><span class="t">'+o.slot+'</span><span class="c">'+esc(o.code)+'</span><span class="i">'+esc(o.name)+' · '+wraps(o)+'</span>' +
+        '<button class="start" type="button" data-start="'+o.id+'">Start now</button></div>';
     }).join("") || '<p class="empty">No later orders yet.</p>';
+    $("startAll").hidden = d.upcoming.length < 2;
     $("collected").innerHTML = d.collected.slice().reverse().map(function(o){
       return '<div class="mini"><span class="t">'+o.slot+'</span><span class="c">'+esc(o.code)+'</span><span class="i">'+esc(o.name)+'</span></div>';
     }).join("") || '<p class="empty">—</p>';
@@ -198,11 +203,17 @@
   }
 
   document.addEventListener("click", function(e){
+    var st = e.target.closest("button[data-start]");
+    if (st){ st.disabled = true; api("/api/kitchen/start", { id: +st.dataset.start }).then(refresh); return; }
     var r = e.target.closest("button[data-reprint]");
     if (r){ r.disabled = true; api("/api/kitchen/orders/" + r.dataset.reprint + "/reprint", {}).then(refresh); return; }
     var b = e.target.closest("button[data-to]"); if (!b) return;
     b.disabled = true;
     api("/api/kitchen/orders/" + b.dataset.id, { status: b.dataset.to }).then(refresh);
+  });
+  $("startAll").addEventListener("click", function(){
+    this.disabled = true; var b = this;
+    api("/api/kitchen/start", {}).then(refresh).finally(function(){ b.disabled = false; });
   });
   $("pause").addEventListener("click", function(){
     var on = this.dataset.on !== "true";
